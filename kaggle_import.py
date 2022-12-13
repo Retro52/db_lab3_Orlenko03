@@ -1,3 +1,4 @@
+import sys
 import csv
 import config
 import psycopg2
@@ -40,12 +41,13 @@ tables_data = {
                 "thread_id": ["Threads", "thread_count", "threads", None]
             },
             "FilterCSV": None
-        }
+        },
+    "DeleteOrder": ["CPU", "LaunchYear", "Lithography", "Threads"]
 }
 
 
 def execute_import():
-    _query = import_tables()
+    _query = import_tables(None, True)
 
     _connection = psycopg2.connect(user=config.username, password=config.password, dbname=config.database,
                                    host=config.host, port=config.port)
@@ -65,7 +67,15 @@ def import_tables(_t_data: dict = None, _clear_and_fill: bool = True) -> str:
     _fname = fname
     _raw_tables = {}
     _res = ""
+
+    for _table in _tables_data["DeleteOrder"]:
+        if _clear_and_fill:
+            # removing all data from the table before re-filling it
+            _res += f"DELETE FROM {_table};\n"
+
     for _table in _tables_data:
+        if _table == "DeleteOrder":
+            break
         _table_data = _tables_data[_table]
         _q, _raw_table = get_populate_request(_fname,
                                               _table,
@@ -76,9 +86,6 @@ def import_tables(_t_data: dict = None, _clear_and_fill: bool = True) -> str:
                                               _table_data["FieldFK"],
                                               _raw_tables)
         _raw_tables[_table] = _raw_table
-        if _clear_and_fill:
-            # removing all data from the table before re-filling it
-            _res += f"TRUNCATE TABLE {_table};\n"
         _res += _q + "\n"
     return _res
 
@@ -128,8 +135,12 @@ def get_populate_request(_fname: str, _table: str, _pk_field: str, _csv_filter, 
                                     _fk_items.append(_key)
 
                 if len(_fk_items) == len(_fk_fields):
+
+                    _new_data = [f"'{_item}'" for _item in _data]
+                    _fk_items = [f"'{str(_item)}'" for _item in _fk_items]
+
                     _res += f"INSERT INTO {_table}({_pk_field}, {', '.join(_params_table)}{', ' if len(_fk_fields) > 0 else ''}{', '.join(_fk_fields)})\n" \
-                            f" VALUES({_ids}, {', '.join(_data)}{', ' if len(_fk_items) > 0 else ''}{', '.join([str(_item) for _item in _fk_items])});\n"
+                            f" VALUES({_ids}, {', '.join(_new_data)}{', ' if len(_fk_items) > 0 else ''}{', '.join(_fk_items)});\n"
 
                     assert len(_params_table) == len(_data)
 
