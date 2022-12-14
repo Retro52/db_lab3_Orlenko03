@@ -9,7 +9,7 @@ DO $$
      FOR counter IN 1..20
          LOOP
             INSERT INTO Threads (thread_id, thread_count)
-             VALUES (thread_idx, thread_num + counter);
+             VALUES (thread_idx + counter * 2, thread_num + counter);
          END LOOP;
     END;
     $$
